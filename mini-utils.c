@@ -52,66 +52,26 @@ static void fetch_caller_info(const char **filename, const void **instruction) {
   }
 }
 
-static void resolve_addr2line(char *symbol, char *source, const char *filename,
-                              const void *instruction) {
-  int fds[2];
-  if (pipe(fds) < 0 ||
-        fcntl(fds[0], F_DUPFD_CLOEXEC) ||
-        fcntl(fds[1], F_DUPFD_CLOEXEC)) {
-    return;
-  }
+// Calls "atos" and parses the result to retrieve the source file/line
+static void addr2line(char *source, const char* filename, const void *entry, const void *address) {
+  char buffer[256];
+  char command[128];
 
-  pid_t child = fork();
-  if (child < 0)
-    return;
+  snprintf(command, 128, "atos -o %s -l %p %p", filename, entry, address);
+  FILE *pipe = popen(command, "r");
 
-  if (!child) {
-    // In the child:
-    // Call "addr2line -f -s -e <filename> <instruction>" and send the stdout to
-    // our parent via the pipe (this is a hack (: )).
-    char inst_str[128];
-    snprintf(inst_str, sizeof(inst_str), "%p", instruction);
-
-    char fn_buf[1024];
-    strncpy(fn_buf, filename, sizeof(fn_buf));
-    fn_buf[sizeof(fn_buf) - 1] = '\0';
-
-    char *command = "addr2line";
-    char *env[] = {"DYLD_INSERT_LIBRARIES=", NULL};
-
-    dup2(fds[1], STDOUT_FILENO);
-    close(STDERR_FILENO);
-    execle(command, command, "-f", "-s", "-e", fn_buf, inst_str, NULL, env);
+  if (NULL == pipe) {
+    perror("pipe");
     exit(1);
-  } else {
-    // In the parent:
-    // Wait on our child, then read the output of addr2line from the pipe, then
-    // extract the symbol and source info.
-    int status;
-    close(fds[1]);
-    if (waitpid(child, &status, 0) < 0)
-      return;
-    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-      return;
-
-    char util_buffer[1024];
-    ssize_t len = read(fds[0], util_buffer, sizeof(util_buffer));
-    util_buffer[len] = '\0';
-    close(fds[0]);
-
-    char *source_info = strchr(util_buffer, '\n');
-    if (!source_info)
-      return;
-
-    *source_info++ = '\0';
-    if (source_info[strlen(source_info) - 1] == '\n')
-      source_info[strlen(source_info) - 1] = '\0';
-    if (strncmp(source_info, "??:", 3))
-      strcpy(source, source_info);
-
-    if (strcmp(util_buffer, "??"))
-      strcpy(symbol, util_buffer);
   }
+
+  fgets(buffer, sizeof(buffer), pipe);
+  buffer[strlen(buffer)-1] = '\0';
+
+  char *file = strrchr(buffer, ' ');
+  snprintf(source, 128, "%s", ++file);
+
+  pclose(pipe);
 }
 
 static void resolve(char *output, const char *filename, const void *instruction,
@@ -125,11 +85,8 @@ static void resolve(char *output, const char *filename, const void *instruction,
     symbol[sizeof(symbol) - 1] = '\0';
   }
 
-  snprintf(source, sizeof(source), "%s:%p", filename, instruction);
-
-  resolve_addr2line(symbol, source, filename, instruction);
-
-  snprintf(output, bufsize, "%s (%s)", symbol, source);
+  addr2line(source, filename, info.dli_fbase, instruction);
+  snprintf(output, bufsize, "%s %s", symbol, source);
 }
 
 /* -------------- Library -------------- */
