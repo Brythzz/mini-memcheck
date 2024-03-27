@@ -1,7 +1,7 @@
 CC = clang
 WARNINGS = -Wall -Wextra -Wno-unused-parameter -Wmissing-declarations -Wmissing-variable-declarations
 CFLAGS_COMMON = $(WARNINGS) -std=c99 -O3
-CFLAGS_SHARED = -dynamiclib -ldl -pthread -shared -fPIC
+CFLAGS_SHARED = -dynamiclib -fPIC
 
 EXE_SHARED = mini-memcheck.dylib
 EXE_BINARY = mini-memcheck

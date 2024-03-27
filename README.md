@@ -2,6 +2,12 @@
 Very basic *Valgrind* memcheck implementation to detect memory leaks.  
 Based on coursework by Jean-Michel Gorius, adapted for MacOS compatibility.
 
+## Usage
+```sh
+$ clang -g something.c -o something
+$ ./mini-memcheck ./something
+```
+
 ## Example output
 ```
 ==4723== Mini-Memcheck
