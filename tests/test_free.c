@@ -1,8 +1,8 @@
 #include <stdlib.h>
 
 int main(void) {
-    int *ptr = malloc(50);
-    free (ptr);
+  int *ptr = malloc(50);
+  free (ptr);
 
-    return 0;
+  return 0;
 }
