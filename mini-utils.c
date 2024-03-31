@@ -44,7 +44,8 @@ static void fetch_caller_info(const char **filename, const void **instruction) {
       return;
     }
     assert(info.dli_fname != NULL);
-    if (strstr(info.dli_fname, internal) == NULL) {
+    char *suffix = strrchr(info.dli_fname, '/');
+    if (strstr(suffix, internal) == NULL) {
       *filename = info.dli_fname;
       *instruction = addr;
       break;
